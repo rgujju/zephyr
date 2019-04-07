@@ -100,6 +100,7 @@ typedef struct
 
 #define NRFX_TWI_FLAG_NO_XFER_EVT_HANDLER (1UL << 2) /**< Interrupt after each transfer is suppressed, and the event handler is not called. */
 #define NRFX_TWI_FLAG_TX_NO_STOP          (1UL << 5) /**< Flag indicating that the TX transfer will not end with a stop condition. */
+#define NRFX_TWI_FLAG_TX_NO_RESTART       (1UL << 6) /**< Flag indicating that the transfer will not have a start condition. */
 
 /**
  * @brief TWI master driver event types.

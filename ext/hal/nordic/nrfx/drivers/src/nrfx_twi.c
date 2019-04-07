@@ -86,6 +86,7 @@ typedef struct
     uint8_t *               p_curr_buf;
     size_t                  curr_length;
     bool                    curr_no_stop;
+    bool                    curr_no_restart;
     nrfx_drv_state_t        state;
     bool                    error;
     volatile bool           busy;
@@ -368,7 +369,8 @@ static nrfx_err_t twi_tx_start_transfer(twi_control_block_t * p_cb,
                                         NRF_TWI_Type *        p_twi,
                                         uint8_t const *       p_data,
                                         size_t                length,
-                                        bool                  no_stop)
+                                        bool                  no_stop,
+                                        bool                  no_restart)
 {
     nrfx_err_t ret_code = NRFX_SUCCESS;
     volatile int32_t hw_timeout;
@@ -386,8 +388,10 @@ static nrfx_err_t twi_tx_start_transfer(twi_control_block_t * p_cb,
 
     // In case TWI is suspended resume its operation.
     nrf_twi_task_trigger(p_twi, NRF_TWI_TASK_RESUME);
-    nrf_twi_task_trigger(p_twi, NRF_TWI_TASK_STARTTX);
-
+    if(!no_restart){
+        nrf_twi_task_trigger(p_twi, NRF_TWI_TASK_STARTTX);
+    }
+    
     (void)twi_send_byte(p_twi, p_data, length, &p_cb->bytes_transferred, no_stop);
 
     if (p_cb->handler)
@@ -435,7 +439,9 @@ static nrfx_err_t twi_tx_start_transfer(twi_control_block_t * p_cb,
 static nrfx_err_t twi_rx_start_transfer(twi_control_block_t * p_cb,
                                         NRF_TWI_Type *        p_twi,
                                         uint8_t const *       p_data,
-                                        size_t                length)
+                                        size_t                length,
+                                        bool                  no_restart
+                                        )
 {
     nrfx_err_t ret_code = NRFX_SUCCESS;
     volatile int32_t hw_timeout;
@@ -460,8 +466,10 @@ static nrfx_err_t twi_rx_start_transfer(twi_control_block_t * p_cb,
     }
     // In case TWI is suspended resume its operation.
     nrf_twi_task_trigger(p_twi, NRF_TWI_TASK_RESUME);
-    nrf_twi_task_trigger(p_twi, NRF_TWI_TASK_STARTRX);
-
+    if(!no_restart){
+        nrf_twi_task_trigger(p_twi, NRF_TWI_TASK_STARTRX);
+    }
+    
     if (p_cb->handler)
     {
         p_cb->int_mask = NRF_TWI_INT_STOPPED_MASK   |
@@ -537,21 +545,29 @@ __STATIC_INLINE nrfx_err_t twi_xfer(twi_control_block_t        * p_cb,
     {
         p_cb->curr_no_stop = ((p_xfer_desc->type == NRFX_TWI_XFER_TX) &&
                              !(flags & NRFX_TWI_FLAG_TX_NO_STOP)) ? false : true;
+                             
+        p_cb->curr_no_restart = ((p_xfer_desc->type == NRFX_TWI_XFER_TX) &&
+                             !(flags & NRFX_TWI_FLAG_TX_NO_RESTART)) ? false : true;
 
         err_code = twi_tx_start_transfer(p_cb,
                                          p_twi,
                                          p_xfer_desc->p_primary_buf,
                                          p_xfer_desc->primary_length,
-                                         p_cb->curr_no_stop);
+                                         p_cb->curr_no_stop,
+                                         p_cb->curr_no_restart);
     }
     else
     {
         p_cb->curr_no_stop = false;
-
+        
+        p_cb->curr_no_restart = ((p_xfer_desc->type == NRFX_TWI_XFER_TX) &&
+                             !(flags & NRFX_TWI_FLAG_TX_NO_RESTART)) ? false : true;
+                             
         err_code = twi_rx_start_transfer(p_cb,
                                          p_twi,
                                          p_xfer_desc->p_primary_buf,
-                                         p_xfer_desc->primary_length);
+                                         p_xfer_desc->primary_length,
+                                         p_cb->curr_no_restart);
     }
     if (p_cb->handler == NULL)
     {
@@ -648,6 +664,7 @@ static void twi_irq_handler(NRF_TWI_Type * p_twi, twi_control_block_t * p_cb)
         p_cb->p_curr_buf   = p_cb->xfer_desc.p_secondary_buf;
         p_cb->curr_length  = p_cb->xfer_desc.secondary_length;
         p_cb->curr_no_stop = (p_cb->flags & NRFX_TWI_FLAG_TX_NO_STOP);
+        p_cb->curr_no_restart = (p_cb->flags & NRFX_TWI_FLAG_TX_NO_RESTART);
 
         if (p_cb->xfer_desc.type == NRFX_TWI_XFER_TXTX)
         {
@@ -655,11 +672,12 @@ static void twi_irq_handler(NRF_TWI_Type * p_twi, twi_control_block_t * p_cb)
                                         p_twi,
                                         p_cb->p_curr_buf,
                                         p_cb->curr_length,
-                                        p_cb->curr_no_stop);
+                                        p_cb->curr_no_stop,
+                                        p_cb->curr_no_restart);
         }
         else
         {
-            (void)twi_rx_start_transfer(p_cb, p_twi, p_cb->p_curr_buf, p_cb->curr_length);
+            (void)twi_rx_start_transfer(p_cb, p_twi, p_cb->p_curr_buf, p_cb->curr_length,p_cb->curr_no_restart);
         }
     }
     else

@@ -38,7 +38,8 @@ static int i2c_nrfx_twi_transfer(struct device *dev, struct i2c_msg *msgs,
 				 u8_t num_msgs, u16_t addr)
 {
 	int ret = 0;
-
+	nrfx_err_t res;
+	
 	k_sem_take(&(get_dev_data(dev)->transfer_sync), K_FOREVER);
 	nrfx_twi_enable(&get_dev_config(dev)->twi);
 
@@ -55,19 +56,30 @@ static int i2c_nrfx_twi_transfer(struct device *dev, struct i2c_msg *msgs,
 			.type		= (msgs[i].flags & I2C_MSG_READ) ?
 					  NRFX_TWI_XFER_RX : NRFX_TWI_XFER_TX
 		};
+		
+		if(i == 0){
+		    res = nrfx_twi_xfer(&get_dev_config(dev)->twi,
+				       &cur_xfer,
+				       ((msgs[i].flags & I2C_MSG_STOP) ?
+				       0 : NRFX_TWI_FLAG_TX_NO_STOP));
+		}else{
+		    res = nrfx_twi_xfer(&get_dev_config(dev)->twi,
+				       &cur_xfer,
+				       ((msgs[i].flags & I2C_MSG_STOP) ?
+				       0 : NRFX_TWI_FLAG_TX_NO_STOP) | 
+				       ((msgs[i].flags & I2C_MSG_RESTART) ?
+				       0 : NRFX_TWI_FLAG_TX_NO_RESTART));		    
+		}
+		
 
-		nrfx_err_t res = nrfx_twi_xfer(&get_dev_config(dev)->twi,
-					       &cur_xfer,
-					       (msgs[i].flags & I2C_MSG_STOP) ?
-					       0 : NRFX_TWI_FLAG_TX_NO_STOP);
 		if (res != NRFX_SUCCESS) {
-			if (res == NRFX_ERROR_BUSY) {
-				ret = -EBUSY;
-				break;
-			} else {
-				ret = -EIO;
-				break;
-			}
+		    if (res == NRFX_ERROR_BUSY) {
+			    ret = -EBUSY;
+			    break;
+		    } else {
+			    ret = -EIO;
+			    break;
+		    }
 		}
 
 		k_sem_take(&(get_dev_data(dev)->completion_sync), K_FOREVER);
