@@ -830,11 +830,6 @@ static int le_adv_set_private_addr(struct bt_le_ext_adv *adv)
 	bt_addr_t nrpa;
 	int err;
 
-	if (IS_ENABLED(CONFIG_BT_EXT_ADV) &&
-	    BT_FEAT_LE_EXT_ADV(bt_dev.le.features)) {
-		return le_set_private_addr(adv->id);
-	}
-
 	err = bt_rand(nrpa.val, sizeof(nrpa.val));
 	if (err) {
 		return err;
@@ -1240,6 +1235,43 @@ static inline bool rpa_is_new(void)
 	return false;
 #endif
 }
+
+static int hci_le_read_max_data_len(u16_t *tx_octets, u16_t *tx_time)
+{
+	struct bt_hci_rp_le_read_max_data_len *rp;
+	struct net_buf *rsp;
+	int err;
+
+	err = bt_hci_cmd_send_sync(BT_HCI_OP_LE_READ_MAX_DATA_LEN, NULL, &rsp);
+	if (err) {
+		BT_ERR("Failed to read DLE max data len");
+		return err;
+	}
+
+	rp = (void *)rsp->data;
+	*tx_octets = sys_le16_to_cpu(rp->max_tx_octets);
+	*tx_time = sys_le16_to_cpu(rp->max_tx_time);
+	net_buf_unref(rsp);
+
+	return 0;
+}
+
+#if (defined(CONFIG_BT_OBSERVER) && defined(CONFIG_BT_EXT_ADV)) \
+	|| defined(CONFIG_BT_USER_PHY_UPDATE)
+static u8_t get_phy(u8_t hci_phy)
+{
+	switch (hci_phy) {
+	case BT_HCI_LE_PHY_1M:
+		return BT_GAP_LE_PHY_1M;
+	case BT_HCI_LE_PHY_2M:
+		return BT_GAP_LE_PHY_2M;
+	case BT_HCI_LE_PHY_CODED:
+		return BT_GAP_LE_PHY_CODED;
+	default:
+		return 0;
+	}
+}
+#endif /* (BT_OBSERVER && BT_EXT_ADV) || USER_PHY_UPDATE */
 
 #if defined(CONFIG_BT_CONN)
 static void hci_acl(struct net_buf *buf)
@@ -1702,48 +1734,61 @@ static int hci_read_remote_version(struct bt_conn *conn)
 	cp->handle = sys_cpu_to_le16(conn->handle);
 
 	return bt_hci_cmd_send_sync(BT_HCI_OP_READ_REMOTE_VERSION_INFO, buf,
-				   NULL);
+				    NULL);
 }
 
 /* LE Data Length Change Event is optional so this function just ignore
  * error and stack will continue to use default values.
  */
-static void hci_le_set_data_len(struct bt_conn *conn)
+int bt_le_set_data_len(struct bt_conn *conn, u16_t tx_octets, u16_t tx_time)
 {
-	struct bt_hci_rp_le_read_max_data_len *rp;
 	struct bt_hci_cp_le_set_data_len *cp;
-	struct net_buf *buf, *rsp;
-	u16_t tx_octets, tx_time;
-	int err;
-
-	err = bt_hci_cmd_send_sync(BT_HCI_OP_LE_READ_MAX_DATA_LEN, NULL, &rsp);
-	if (err) {
-		BT_ERR("Failed to read DLE max data len");
-		return;
-	}
-
-	rp = (void *)rsp->data;
-	tx_octets = sys_le16_to_cpu(rp->max_tx_octets);
-	tx_time = sys_le16_to_cpu(rp->max_tx_time);
-	net_buf_unref(rsp);
+	struct net_buf *buf;
 
 	buf = bt_hci_cmd_create(BT_HCI_OP_LE_SET_DATA_LEN, sizeof(*cp));
 	if (!buf) {
-		BT_ERR("Failed to create LE Set Data Length Command");
-		return;
+		return -ENOBUFS;
 	}
 
 	cp = net_buf_add(buf, sizeof(*cp));
 	cp->handle = sys_cpu_to_le16(conn->handle);
 	cp->tx_octets = sys_cpu_to_le16(tx_octets);
 	cp->tx_time = sys_cpu_to_le16(tx_time);
-	err = bt_hci_cmd_send(BT_HCI_OP_LE_SET_DATA_LEN, buf);
-	if (err) {
-		BT_ERR("Failed to send LE Set Data Length Command");
-	}
+
+	return bt_hci_cmd_send(BT_HCI_OP_LE_SET_DATA_LEN, buf);
 }
 
-static int hci_le_set_phy(struct bt_conn *conn)
+#if defined(CONFIG_BT_USER_PHY_UPDATE)
+static int hci_le_read_phy(struct bt_conn *conn)
+{
+	struct bt_hci_cp_le_read_phy *cp;
+	struct bt_hci_rp_le_read_phy *rp;
+	struct net_buf *buf, *rsp;
+	int err;
+
+	buf = bt_hci_cmd_create(BT_HCI_OP_LE_READ_PHY, sizeof(*cp));
+	if (!buf) {
+		return -ENOBUFS;
+	}
+
+	cp = net_buf_add(buf, sizeof(*cp));
+	cp->handle = sys_cpu_to_le16(conn->handle);
+
+	err = bt_hci_cmd_send_sync(BT_HCI_OP_LE_READ_PHY, buf, &rsp);
+	if (err) {
+		return err;
+	}
+
+	rp = (void *)rsp->data;
+	conn->le.phy.tx_phy = get_phy(rp->tx_phy);
+	conn->le.phy.rx_phy = get_phy(rp->rx_phy);
+	net_buf_unref(rsp);
+
+	return 0;
+}
+#endif /* defined(CONFIG_BT_USER_PHY_UPDATE) */
+
+int bt_le_set_phy(struct bt_conn *conn, u8_t pref_tx_phy, u8_t pref_rx_phy)
 {
 	struct bt_hci_cp_le_set_phy *cp;
 	struct net_buf *buf;
@@ -1756,12 +1801,11 @@ static int hci_le_set_phy(struct bt_conn *conn)
 	cp = net_buf_add(buf, sizeof(*cp));
 	cp->handle = sys_cpu_to_le16(conn->handle);
 	cp->all_phys = 0U;
-	cp->tx_phys = BT_HCI_LE_PHY_PREFER_2M;
-	cp->rx_phys = BT_HCI_LE_PHY_PREFER_2M;
+	cp->tx_phys = pref_tx_phy;
+	cp->rx_phys = pref_rx_phy;
 	cp->phy_opts = BT_HCI_LE_PHY_CODED_ANY;
-	bt_hci_cmd_send(BT_HCI_OP_LE_SET_PHY, buf);
 
-	return 0;
+	return bt_hci_cmd_send(BT_HCI_OP_LE_SET_PHY, buf);
 }
 
 static void slave_update_conn_param(struct bt_conn *conn)
@@ -1885,16 +1929,28 @@ static void conn_auto_initiate(struct bt_conn *conn)
 	if (IS_ENABLED(CONFIG_BT_AUTO_PHY_UPDATE) &&
 	    !atomic_test_bit(conn->flags, BT_CONN_AUTO_PHY_COMPLETE) &&
 	    BT_FEAT_LE_PHY_2M(bt_dev.le.features)) {
-		err = hci_le_set_phy(conn);
+		err = bt_le_set_phy(conn,
+				    BT_HCI_LE_PHY_PREFER_2M,
+				    BT_HCI_LE_PHY_PREFER_2M);
 		if (!err) {
 			atomic_set_bit(conn->flags, BT_CONN_AUTO_PHY_UPDATE);
 			return;
 		}
+
+		BT_ERR("Failed to set LE PHY (%d)", err);
 	}
 
-	if (IS_ENABLED(CONFIG_BT_DATA_LEN_UPDATE) &&
+	if (IS_ENABLED(CONFIG_BT_AUTO_DATA_LEN_UPDATE) &&
 	    BT_FEAT_LE_DLE(bt_dev.le.features)) {
-		hci_le_set_data_len(conn);
+		u16_t tx_octets, tx_time;
+
+		err = hci_le_read_max_data_len(&tx_octets, &tx_time);
+		if (!err) {
+			err = bt_le_set_data_len(conn, tx_octets, tx_time);
+			if (err) {
+				BT_ERR("Failed to set data len (%d)", err);
+			}
+		}
 	}
 
 	if (IS_ENABLED(CONFIG_BT_PERIPHERAL) &&
@@ -2060,6 +2116,17 @@ static void enh_conn_complete(struct bt_hci_evt_le_enh_conn_complete *evt)
 	conn->role = evt->role;
 	conn->err = 0U;
 
+#if defined(CONFIG_BT_USER_DATA_LEN_UPDATE)
+	conn->le.data_len.tx_max_len = BT_GAP_DATA_LEN_DEFAULT;
+	conn->le.data_len.tx_max_time = BT_GAP_DATA_TIME_DEFAULT;
+	conn->le.data_len.rx_max_len = BT_GAP_DATA_LEN_DEFAULT;
+	conn->le.data_len.rx_max_time = BT_GAP_DATA_TIME_DEFAULT;
+#endif
+
+#if defined(CONFIG_BT_USER_PHY_UPDATE)
+	conn->le.phy.tx_phy = BT_GAP_LE_PHY_1M;
+	conn->le.phy.rx_phy = BT_GAP_LE_PHY_1M;
+#endif
 	/*
 	 * Use connection address (instead of identity address) as initiator
 	 * or responder address. Only slave needs to be updated. For master all
@@ -2134,6 +2201,26 @@ static void enh_conn_complete(struct bt_hci_evt_le_enh_conn_complete *evt)
 					&bt_dev.id_addr[conn->id]);
 		}
 	}
+
+#if defined(CONFIG_BT_USER_PHY_UPDATE)
+	if (IS_ENABLED(CONFIG_BT_EXT_ADV) &&
+	    BT_FEAT_LE_EXT_ADV(bt_dev.le.features)) {
+		int err;
+
+		err = hci_le_read_phy(conn);
+		if (err) {
+			BT_WARN("Failed to read PHY (%d)", err);
+		} else {
+			if (IS_ENABLED(CONFIG_BT_AUTO_PHY_UPDATE) &&
+			    conn->le.phy.tx_phy == BT_HCI_LE_PHY_PREFER_2M &&
+			    conn->le.phy.rx_phy == BT_HCI_LE_PHY_PREFER_2M) {
+				/* Already on 2M, skip auto-phy update. */
+				atomic_set_bit(conn->flags,
+					       BT_CONN_AUTO_PHY_COMPLETE);
+			}
+		}
+	}
+#endif /* defined(CONFIG_BT_USER_PHY_UPDATE) */
 
 	bt_conn_set_state(conn, BT_CONN_CONNECTED);
 
@@ -2232,7 +2319,17 @@ static void le_data_len_change(struct net_buf *buf)
 	BT_DBG("max. tx: %u (%uus), max. rx: %u (%uus)", max_tx_octets,
 	       max_tx_time, max_rx_octets, max_rx_time);
 
-	/* TODO use those */
+#if defined(CONFIG_BT_USER_DATA_LEN_UPDATE)
+	if (IS_ENABLED(CONFIG_BT_AUTO_DATA_LEN_UPDATE)) {
+		atomic_set_bit(conn->flags, BT_CONN_AUTO_DATA_LEN_COMPLETE);
+	}
+
+	conn->le.data_len.tx_max_len = max_tx_octets;
+	conn->le.data_len.tx_max_time = max_tx_time;
+	conn->le.data_len.rx_max_len = max_rx_octets;
+	conn->le.data_len.rx_max_time = max_rx_time;
+	notify_le_data_len_updated(conn);
+#endif
 
 	bt_conn_unref(conn);
 }
@@ -2254,16 +2351,20 @@ static void le_phy_update_complete(struct net_buf *buf)
 	BT_DBG("PHY updated: status: 0x%02x, tx: %u, rx: %u",
 	       evt->status, evt->tx_phy, evt->rx_phy);
 
-	if (!IS_ENABLED(CONFIG_BT_AUTO_PHY_UPDATE) ||
-	    !atomic_test_and_clear_bit(conn->flags, BT_CONN_AUTO_PHY_UPDATE)) {
-		goto done;
+	if (IS_ENABLED(CONFIG_BT_AUTO_PHY_UPDATE) &&
+	    atomic_test_and_clear_bit(conn->flags, BT_CONN_AUTO_PHY_UPDATE)) {
+		atomic_set_bit(conn->flags, BT_CONN_AUTO_PHY_COMPLETE);
+
+		/* Continue with auto-initiated procedures */
+		conn_auto_initiate(conn);
 	}
 
-	atomic_set_bit(conn->flags, BT_CONN_AUTO_PHY_COMPLETE);
-	/* Continue with auto-initiated procedures */
-	conn_auto_initiate(conn);
+#if defined(CONFIG_BT_USER_PHY_UPDATE)
+	conn->le.phy.tx_phy = get_phy(evt->tx_phy);
+	conn->le.phy.rx_phy = get_phy(evt->rx_phy);
+	notify_le_phy_updated(conn);
+#endif
 
-done:
 	bt_conn_unref(conn);
 }
 #endif /* CONFIG_BT_PHY_UPDATE */
@@ -2535,7 +2636,8 @@ int bt_unpair(u8_t id, const bt_addr_le_t *addr)
 		return -EINVAL;
 	}
 
-	if (!addr || !bt_addr_le_cmp(addr, BT_ADDR_LE_ANY)) {
+	if (IS_ENABLED(CONFIG_BT_SMP) &&
+	    (!addr || !bt_addr_le_cmp(addr, BT_ADDR_LE_ANY))) {
 		bt_foreach_bond(id, unpair_remote, &id);
 		return 0;
 	}
@@ -4747,20 +4849,6 @@ static u8_t get_adv_type(u8_t evt_type)
 	}
 }
 
-static u8_t get_phy(u8_t hci_phy)
-{
-	switch (hci_phy) {
-	case BT_HCI_LE_PHY_1M:
-		return BT_GAP_LE_PHY_1M;
-	case BT_HCI_LE_PHY_2M:
-		return BT_GAP_LE_PHY_2M;
-	case BT_HCI_LE_PHY_CODED:
-		return BT_GAP_LE_PHY_CODED;
-	default:
-		return 0;
-	}
-}
-
 static void le_adv_ext_report(struct net_buf *buf)
 {
 	u8_t num_reports = net_buf_pull_u8(buf);
@@ -5551,6 +5639,7 @@ static int le_init(void)
 	if (err) {
 		return err;
 	}
+
 	read_le_features_complete(rsp);
 	net_buf_unref(rsp);
 
@@ -5600,19 +5689,12 @@ static int le_init(void)
 	    IS_ENABLED(CONFIG_BT_DATA_LEN_UPDATE) &&
 	    BT_FEAT_LE_DLE(bt_dev.le.features)) {
 		struct bt_hci_cp_le_write_default_data_len *cp;
-		struct bt_hci_rp_le_read_max_data_len *rp;
 		u16_t tx_octets, tx_time;
 
-		err = bt_hci_cmd_send_sync(BT_HCI_OP_LE_READ_MAX_DATA_LEN, NULL,
-					   &rsp);
+		err = hci_le_read_max_data_len(&tx_octets, &tx_time);
 		if (err) {
 			return err;
 		}
-
-		rp = (void *)rsp->data;
-		tx_octets = sys_le16_to_cpu(rp->max_tx_octets);
-		tx_time = sys_le16_to_cpu(rp->max_tx_time);
-		net_buf_unref(rsp);
 
 		buf = bt_hci_cmd_create(BT_HCI_OP_LE_WRITE_DEFAULT_DATA_LEN,
 					sizeof(*cp));

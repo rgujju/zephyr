@@ -50,7 +50,7 @@ static int eswifi_off_listen(struct net_context *context, int backlog)
 	__select_socket(eswifi, socket->index);
 
 	/* Set backlog */
-	snprintf(eswifi->buf, sizeof(eswifi->buf), "P8=%d\r", backlog);
+	snprintk(eswifi->buf, sizeof(eswifi->buf), "P8=%d\r", backlog);
 	err = eswifi_at_cmd(eswifi, eswifi->buf);
 	if (err < 0) {
 		LOG_ERR("Unable to start set listen backlog");
@@ -196,7 +196,7 @@ static int __eswifi_off_send_pkt(struct eswifi_dev *eswifi,
 	__select_socket(eswifi, socket->index);
 
 	/* header */
-	snprintf(eswifi->buf, sizeof(eswifi->buf), "S3=%u\r", bytes);
+	snprintk(eswifi->buf, sizeof(eswifi->buf), "S3=%u\r", bytes);
 	offset = strlen(eswifi->buf);
 
 	/* copy payload */
@@ -484,10 +484,18 @@ void eswifi_offload_async_msg(struct eswifi_dev *eswifi, char *msg, size_t len)
 			return;
 		}
 
-		sin_addr = &net_sin(&socket->peer_addr)->sin_addr;
+		struct sockaddr_in *peer = net_sin(&socket->peer_addr);
+
+		sin_addr = &peer->sin_addr;
 		memcpy(&sin_addr->s4_addr, ip, 4);
+		peer->sin_port = htons(port);
 		socket->state = ESWIFI_SOCKET_STATE_CONNECTED;
 		socket->usage++;
+
+		/* Save information about remote. */
+		socket->context->flags |= NET_CONTEXT_REMOTE_ADDR_SET;
+		memcpy(&socket->context->remote, &socket->peer_addr,
+		       sizeof(struct sockaddr));
 
 		LOG_DBG("%u.%u.%u.%u connected to port %u",
 			ip[0], ip[1], ip[2], ip[3], port);

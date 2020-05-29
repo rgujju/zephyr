@@ -161,7 +161,7 @@ static u32_t gpio_ht16k33_get_pending_int(struct device *dev)
 
 static int gpio_ht16k33_init(struct device *dev)
 {
-	const struct gpio_ht16k33_cfg *config = dev->config->config_info;
+	const struct gpio_ht16k33_cfg *config = dev->config_info;
 	struct gpio_ht16k33_data *data = dev->driver_data;
 
 	if (config->keyscan_idx >= HT16K33_KEYSCAN_ROWS) {
@@ -215,6 +215,6 @@ static const struct gpio_driver_api gpio_ht16k33_api = {
 			    &gpio_ht16k33_##id##_data,			\
 			    &gpio_ht16k33_##id##_cfg, POST_KERNEL,	\
 			    CONFIG_GPIO_HT16K33_INIT_PRIORITY,		\
-			    &gpio_ht16k33_api)
+			    &gpio_ht16k33_api);
 
-DT_INST_FOREACH(GPIO_HT16K33_DEVICE)
+DT_INST_FOREACH_STATUS_OKAY(GPIO_HT16K33_DEVICE)

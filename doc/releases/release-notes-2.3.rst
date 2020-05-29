@@ -16,7 +16,17 @@ The following sections provide detailed lists of changes by component.
 Security Vulnerability Related
 ******************************
 
-No security vulnerabilities received.
+The following CVEs are addressed by this release:
+
+* CVE-2020-10022: UpdateHub Module Copies a Variable-Sized Hash String
+  into a fixed-size array.
+* CVE-2020-10059: UpdateHub Module Explicitly Disables TLS
+  Verification
+* CVE-2020-10062: Under embargo until 2020/05/25
+* CVE-2020-10063: Under embargo until 2020/05/25
+
+More detailed information can be found in:
+https://docs.zephyrproject.org/latest/security/vulnerabilities.html
 
 API Changes
 ***********
@@ -75,9 +85,13 @@ Deprecated in this release
 
 * Devicetree
 
-  * The C macros generated from devicetree. Use the new ``<devicetree.h>``
-    accessor API instead; see :ref:`dt-guide` for details. Use of the legacy
-    macros requires enabling :option:`CONFIG_LEGACY_DEVICETREE_MACROS`.
+  * The C macros generated from the devicetree in previous releases are now
+    deprecated in favor of a new ``<devicetree.h>`` API.
+  * See :ref:`dt-from-c` for a high-level guide to the new API, and
+    :ref:`devicetree_api` for an API reference.
+  * Use of the legacy macros now requires explicitly enabling
+    :option:`CONFIG_LEGACY_DEVICETREE_MACROS`. See :ref:`dt-legacy-macros` for
+    more information, including a link to a migration guide to the new API.
 
 Removed APIs in this release
 ============================
@@ -98,6 +112,16 @@ Stable API changes in this release
     function pointer parameter. If networking PM is not implemented for the
     specific network device, the device_pm_control_nop value can be used.
 
+* Video
+
+  * The video_dequeue() API call now takes a k_timeout_t for the timeout
+    parameter. This reverts to s32_t if CONFIG_LEGACY_TIMEOUT_API is enabled.
+
+* Floating Point Services
+
+  * FLOAT and FP_SHARING Kconfig options have been renamed to FPU and FPU_SHARING,
+    respectively.
+
 Kernel
 ******
 
@@ -112,7 +136,22 @@ Architectures
 
 * ARM:
 
-  * <TBD>
+  * CMSIS has been moved out of the main tree and now resides in its
+    own standalone module repository
+  * Updated CMSIS version to 5.7.0
+  * Added CMSIS-DSP library integration
+  * Added semihosting console support
+  * Cleanups and improvements to the Cortex-M exception vector table
+  * Fixed the behavior of Cortex-M spurious IRQ handler
+  * Fixed parsing of Cortex-M MemManage Stacking Errors
+  * Fixed the arch_cpu_idle() implementation for Cortex-M and Cortex-R
+  * Renamed Cortex-R architecture port to cortex_a_r in preparation for the
+    AArch32 Cortex-A architecture port
+  * Added processor exception handling and reporting framework for Cortex-R
+  * Added nested interrupt support on AArch32 Cortex-R and AArch64 Cortex-A
+  * Refactored Cortex-R interrupt system to remove fake multi-level interrupt
+    controller abstraction scheme
+
 
 * POSIX:
 
@@ -120,7 +159,9 @@ Architectures
 
 * RISC-V:
 
-  * <TBD>
+  * Add support for hard floating point for RISC-V
+  * Add march and mabi options to Kconfig
+  * Fix compilation warning for platforms without PLIC
 
 * x86:
 
@@ -133,30 +174,46 @@ Boards & SoC Support
 
 .. rst-class:: rst-columns
 
-   * <TBD>
+   * STM32L5 series of Ultra-low-power MCUs
 
 * Added support for these ARM boards:
 
   .. rst-class:: rst-columns
 
-     * <TBD>
+     * 96Boards AeroCore 2
+     * Adafruit Feather STM32F405 Express
+     * Black STM32 F407VE Development Board
+     * Black STM32 F407ZG Pro Development Board
+     * ST Nucleo H743ZI
+     * ST Nucleo F303RE
+     * ST Nucleo L552ZE-Q
 
 * Added support for these following shields:
 
   .. rst-class:: rst-columns
 
-     * <TBD>
+     * Espressif ESP-8266 Module
+     * MikroElektronika ADC Click
+     * MikroElectronica Eth Click
+     * ST X-NUCLEO-IKS02A1: MEMS Inertial and Environmental Multi sensor shield
 
 Drivers and Sensors
 *******************
 
 * ADC
 
-  * <TBD>
+  * Add support for STM32G4, STM32L1 and STM32H7 series
+  * Enable internal voltage reference source on stm32
 
 * Bluetooth
 
-  * <TBD>
+  * Add an RX thread on stm32wb hci wrapper
+  * Improve BLE support for rv32m1_vega:
+
+    - Add Resolvable Private Address support
+    - Enable power saving support
+    - Add 2 Mbps support
+    - Enable controller-based privacy
 
 * CAN
 
@@ -164,7 +221,8 @@ Drivers and Sensors
 
 * Clock Control
 
-  * <TBD>
+  * Enable MSI range config in PLL mode on stm32
+  * Fix AHB clock computation based on core on stm32h7
 
 * Console
 
@@ -172,7 +230,12 @@ Drivers and Sensors
 
 * Counter
 
-  * <TBD>
+  * Add support on stm32h7 and stm32l0
+  * Fix alarm tick count on stm32
+
+* DAC
+
+  * Add stm32l0 series support
 
 * Display
 
@@ -180,7 +243,8 @@ Drivers and Sensors
 
 * DMA
 
-  * <TBD>
+  * Enable use of DMAMUX on stm32l4+ and stm32wb
+  * Various fixes on stm32 dma management
 
 * EEPROM
 
@@ -192,11 +256,25 @@ Drivers and Sensors
 
 * Ethernet
 
-  * <TBD>
+  * Add SAM E54 max queue count referencing
+  * Add SAM0 family support to gmac driver
+  * Add sam4e support to queue in gmac
+  * Add network power management support to mcux
+  * Add VLAN support to enc28j60
+  * Add VLAN support to stm32
+  * Add Ethernet cable link status support to gmac
+  * Add support for i.MXRT1060 family to mcux
+  * Add support for getting manual MAC address from devicetree
+  * Add support for enabling random MAC address from devicetree
+  * Various fixes to setup and cache handling in gmac
+  * Fix how unique MAC address is determined in mcux
+  * Fix Ethernet cable link detection in gecko
+  * Fix stm32 when receiving data during initialization
 
 * Flash
 
-  * <TBD>
+  * Add logs on stm32
+  * Fix wrong bank erasing on stm32g4
 
 * GPIO
 
@@ -208,7 +286,7 @@ Drivers and Sensors
 
 * I2C
 
-  * <TBD>
+  * Add support to stm32h7
 
 * I2S
 
@@ -216,10 +294,19 @@ Drivers and Sensors
 
 * IEEE 802.15.4
 
-  * <TBD>
+  * Add Decawave DW1000 driver
+  * Add "no auto start" option and local MAC address support to rf2xx
+  * Add support for Frame Pending Bit (FPB) handling in nrf5
+  * Add CSMA CA transmit capability to nrf5
+  * Add PAN coordinator mode support to nrf5
+  * Add support for promiscuous mode to nrf5
+  * Add support for energy scan function to nrf5
+  * Fix RX timestamp handling in nrf5
+  * Various fixes to rf2xx
 
 * Interrupt Controller
 
+  * Fix PLIC register space
   * <TBD>
 
 * IPM
@@ -236,10 +323,19 @@ Drivers and Sensors
 
 * Modem
 
-  * <TBD>
+  * Add support for GSM 07.10 muxing protocol to generic GSM modem
+  * Add support for modem commands that do not have a line ending
+  * Add automatic detection of ublox-sara-r4 modem type
+  * Add automatic setting of APN for ublox-sara-r4
+  * Add sendmsg() support to ublox-sara-r4
+  * Fix UDP socket closing in ublox-sara-r4
+  * Fix RSSI calculation for Sara U201
+  * Fix TCP context release and RX socket src/dst port assignment in wncm14a2a
+  * Change PPP driver connection to generic GSM modem
 
 * Pinmux
 
+  * Fix compilation errors in rv32m1_vega pinmux
   * <TBD>
 
 * PS/2
@@ -248,19 +344,22 @@ Drivers and Sensors
 
 * PWM
 
-  * <TBD>
+  * Add support to stm32h7
 
 * Sensor
 
+  * Add support for Analog Devices ADXL345 3-axis I2C accelerometer
   * <TBD>
 
 * Serial
 
-  * <TBD>
+  * Add uart_mux driver that is used in GSM 07.10 muxing protocol
+  * Add support for parity setting from dts on stm32
+  * Add support for stm32l5
 
 * SPI
 
-  * <TBD>
+  * Add support for DMA client on stm32
 
 * Timer
 
@@ -268,7 +367,9 @@ Drivers and Sensors
 
 * USB
 
-  * <TBD>
+  * Add experimental USB Audio implementation.
+  * Add support to stm32wb
+  * Fix PMA leak at reset on stm32
 
 * Video
 
@@ -276,16 +377,53 @@ Drivers and Sensors
 
 * Watchdog
 
-  * <TBD>
+  * Add support on stm32g0
+  * Disable iwdg at boot on stm32
 
 * WiFi
 
-  * <TBD>
+  * Add scan completion indication to eswifi
+  * Add support to ESP8266 and ESP32
+
 
 Networking
 **********
 
-* <TBD>
+* Convert networking to use new k_timeout_t infrastructure
+* Enhance new TCP stack support
+* Add minimal support for TFTP client (RFC 1350)
+* Add support for network device driver power management
+* Add support for socketpair() BSD socket API
+* Add support for QEMU user networking (SLIRP)
+* Add support to disable automatic network attachment in OpenThread
+* Add support for Frame Pending Bit handling in OpenThread
+* Add support for RX frame handling in OpenThread
+* Add support for TX started notification in OpenThread
+* Add support for HW CSMA CA in OpenThread
+* Add support for promiscuous mode in OpenThread
+* Add support for reading OPAQUE resources with OMA TLV in LWM2M
+* Add config to enable PAN coordinator mode in IEEE 802.15.4
+* Add config to enable promiscuous mode in IEEE 802.15.4
+* Add support for subscribe in Azure cloud sample
+* Add support for queue mode in lwm2m_client sample
+* Add support to allow change of the QEMU Ethernet interface name
+* Add support for PPP IPCP to negotiate used DNS servers
+* Add support for setting hostname in DHCPv4 request
+* Fix binding AF_PACKET socket type multiple times
+* Fix LLDPDU data in sent LLDP packets
+* Fix and enhance Google IoT sample application documentation
+* Fix MQTT cloud sample when polling incoming messages
+* Fix LWM2M socket error handling, and pending and reply handling during start
+* Fix LWM2M retransmission logic
+* Fix LWM2M Cell ID resource initialization
+* Fix COAP pending and reply handling
+* Fix wpan_serial sample application and enable USB during initialization
+* Fix HTTP client payload issue on HTTP upload
+* Fix MQTT Websocket incoming data handling and accept packets only in RX
+* Fix MQTT Publish message length validation
+* Fix IEEE 802.15.4 received frame length validation
+* Fix IEEE 802.15.4 and avoid ACK processing when not needed
+* Fix IEEE 802.15.4 and allow energy detection scan unconditionally
 
 Bluetooth
 *********
@@ -318,9 +456,18 @@ Build and Infrastructure
 Libraries / Subsystems
 **********************
 
+* Disk
+
+  * Add stm32 sdmmc disk access driver, supports stm32f7 and stm32l4
+
 * Random
 
   * <TBD>
+
+* POSIX subsystem:
+
+  * socketpair() function implemented.
+  * eventfd() function (Linux-like extension) implemented.
 
 HALs
 ****
@@ -336,7 +483,8 @@ Documentation
 Tests and Samples
 *****************
 
-* <TBD>
+* Added samples for USB Audio Class.
+* Added sample for using POSIX read()/write() with network sockets.
 
 Issue Related Items
 *******************

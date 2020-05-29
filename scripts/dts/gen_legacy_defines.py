@@ -18,6 +18,13 @@ import sys
 
 import edtlib
 
+# Set this to True to generated deprecated macro warnings. Since this
+# entire file is deprecated and must be explicitly enabled with
+# CONFIG_LEGACY_DEVICETREE_MACROS, this was turned off by default
+# shortly before the v2.3 release (this was the least impactful way to
+# do it, which resulted in the smallest and least-risky patch).
+DEPRECATION_MESSAGES = False
+
 def main():
     global header_file
     global flash_area_num
@@ -28,7 +35,9 @@ def main():
         edt = edtlib.EDT(args.dts, args.bindings_dirs,
                          # Suppress this warning if it's suppressed in dtc
                          warn_reg_unit_address_mismatch=
-                             "-Wno-simple_bus_reg" not in args.dtc_flags)
+                             "-Wno-simple_bus_reg" not in args.dtc_flags,
+                         default_prop_types=False,
+                         support_fixed_partitions_on_any_bus = False)
     except edtlib.EDTError as e:
         sys.exit(f"devicetree error: {e}")
 
@@ -766,7 +775,8 @@ def out_define(ident, val, deprecation_msg, out_file):
     # 'deprecation_msg'.
 
     s = f"#define DT_{ident:40}"
-    if deprecation_msg:
+
+    if DEPRECATION_MESSAGES and deprecation_msg:
         s += fr' __WARN("{deprecation_msg}")'
     s += f" {val}"
     print(s, file=out_file)

@@ -23,7 +23,7 @@ struct sam_pwm_config {
 };
 
 #define DEV_CFG(dev) \
-	((const struct sam_pwm_config * const)(dev)->config->config_info)
+	((const struct sam_pwm_config * const)(dev)->config_info)
 
 static int sam_pwm_get_cycles_per_sec(struct device *dev, u32_t pwm,
 				      u64_t *cycles)
@@ -111,6 +111,6 @@ static const struct pwm_driver_api sam_pwm_driver_api = {
 			    NULL, &sam_pwm_config_##inst,		\
 			    POST_KERNEL,				\
 			    CONFIG_KERNEL_INIT_PRIORITY_DEVICE,		\
-			    &sam_pwm_driver_api)
+			    &sam_pwm_driver_api);
 
-DT_INST_FOREACH(SAM_INST_INIT)
+DT_INST_FOREACH_STATUS_OKAY(SAM_INST_INIT)

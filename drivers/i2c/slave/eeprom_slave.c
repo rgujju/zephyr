@@ -36,7 +36,7 @@ struct i2c_eeprom_slave_config {
 /* convenience defines */
 #define DEV_CFG(dev)							\
 	((const struct i2c_eeprom_slave_config * const)			\
-		(dev)->config->config_info)
+		(dev)->config_info)
 #define DEV_DATA(dev)							\
 	((struct i2c_eeprom_slave_data * const)(dev)->driver_data)
 
@@ -227,6 +227,6 @@ static int i2c_eeprom_slave_init(struct device *dev)
 			    &i2c_eeprom_slave_##inst##_cfg,		\
 			    POST_KERNEL,				\
 			    CONFIG_I2C_SLAVE_INIT_PRIORITY,		\
-			    &api_funcs)
+			    &api_funcs);
 
-DT_INST_FOREACH(I2C_EEPROM_INIT)
+DT_INST_FOREACH_STATUS_OKAY(I2C_EEPROM_INIT)

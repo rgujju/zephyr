@@ -16,7 +16,8 @@
 #define MAX_PAGE_SIZE 0x1000 /* Max supported page size to run test on */
 #define MAX_NUM_PAGES 4      /* Max number of pages used in these tests */
 #define TESTBUF_SIZE (MAX_PAGE_SIZE * MAX_NUM_PAGES)
-#define FLASH_SIZE DT_SOC_NV_FLASH_0_SIZE
+#define SOC_NV_FLASH_NODE DT_INST(0, soc_nv_flash)
+#define FLASH_SIZE DT_REG_SIZE(SOC_NV_FLASH_NODE)
 #define FLASH_NAME DT_CHOSEN_ZEPHYR_FLASH_CONTROLLER_LABEL
 
 /* so that we don't overwrite the application when running on hw */
@@ -177,6 +178,35 @@ static void test_stream_flash_buffered_write_cross_buf_border(void)
 	VERIFY_WRITTEN(0, BUF_LEN * 2 + BUF_LEN / 2);
 }
 
+static void test_stream_flash_buffered_write_unaligned(void)
+{
+	int rc;
+
+	if (flash_get_write_block_size(fdev) == 1) {
+		ztest_test_skip();
+	}
+
+	init_target();
+
+	/* Test unaligned data size */
+	rc = stream_flash_buffered_write(&ctx, write_buf, 1, true);
+	zassert_equal(rc, 0, "expected success (%d)", rc);
+
+	/* 1 byte should be dumped to flash */
+	VERIFY_WRITTEN(0, 1);
+
+	rc = stream_flash_init(&ctx, fdev, buf, BUF_LEN, FLASH_BASE + BUF_LEN,
+			       0, stream_flash_callback);
+	zassert_equal(rc, 0, "expected success");
+
+	/* Test unaligned data size */
+	rc = stream_flash_buffered_write(&ctx, write_buf, BUF_LEN - 1, true);
+	zassert_equal(rc, 0, "expected success");
+
+	/* BUF_LEN-1 bytes should be dumped to flash */
+	VERIFY_WRITTEN(BUF_LEN, BUF_LEN - 1);
+}
+
 static void test_stream_flash_buffered_write_multi_page(void)
 {
 	int rc;
@@ -322,6 +352,16 @@ static void test_stream_flash_erase_page(void)
 
 	VERIFY_ERASED(FLASH_BASE, page_size);
 }
+#else
+static void test_stream_flash_erase_page(void)
+{
+	ztest_test_skip();
+}
+
+static void test_stream_flash_buffered_write_whole_page(void)
+{
+	ztest_test_skip();
+}
 #endif
 
 void test_main(void)
@@ -337,13 +377,12 @@ void test_main(void)
 	     ztest_unit_test(test_stream_flash_init),
 	     ztest_unit_test(test_stream_flash_buffered_write),
 	     ztest_unit_test(test_stream_flash_buffered_write_cross_buf_border),
+	     ztest_unit_test(test_stream_flash_buffered_write_unaligned),
 	     ztest_unit_test(test_stream_flash_buffered_write_multi_page),
 	     ztest_unit_test(test_stream_flash_buf_size_greater_than_page_size),
 	     ztest_unit_test(test_stream_flash_buffered_write_callback),
-#ifdef CONFIG_STREAM_FLASH_ERASE
 	     ztest_unit_test(test_stream_flash_buffered_write_whole_page),
 	     ztest_unit_test(test_stream_flash_erase_page),
-#endif
 	     ztest_unit_test(test_stream_flash_bytes_written)
 	 );
 

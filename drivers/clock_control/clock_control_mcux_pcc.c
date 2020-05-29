@@ -22,7 +22,7 @@ struct mcux_pcc_config {
 	u32_t base_address;
 };
 
-#define DEV_CFG(dev)  ((struct mcux_pcc_config *)(dev->config->config_info))
+#define DEV_CFG(dev)  ((struct mcux_pcc_config *)(dev->config_info))
 #define DEV_BASE(dev) (DEV_CFG(dev)->base_address)
 #ifndef MAKE_PCC_REGADDR
 #define MAKE_PCC_REGADDR(base, offset) ((base) + (offset))
@@ -77,6 +77,6 @@ static const struct clock_control_driver_api mcux_pcc_api = {
 			    NULL, &mcux_pcc##inst##_config,		\
 			    PRE_KERNEL_1,				\
 			    CONFIG_KERNEL_INIT_PRIORITY_OBJECTS,	\
-			    &mcux_pcc_api)
+			    &mcux_pcc_api);
 
-DT_INST_FOREACH(MCUX_PCC_INIT)
+DT_INST_FOREACH_STATUS_OKAY(MCUX_PCC_INIT)

@@ -34,10 +34,10 @@ LOG_MODULE_REGISTER(dma_dw);
 /* default initial setup register values */
 #define DW_CFG_LOW_DEF			0x0
 
-#define DEV_NAME(dev) ((dev)->config->name)
+#define DEV_NAME(dev) ((dev)->name)
 #define DEV_DATA(dev) ((struct dw_dma_dev_data *const)(dev)->driver_data)
 #define DEV_CFG(dev) \
-	((const struct dw_dma_dev_cfg *const)(dev)->config->config_info)
+	((const struct dw_dma_dev_cfg *const)(dev)->config_info)
 
 /* number of tries to wait for reset */
 #define DW_DMA_CFG_TRIES	10000
@@ -425,4 +425,4 @@ static const struct dma_driver_api dw_dma_driver_api = {
 		irq_enable(DT_INST_IRQN(inst));				\
 	}
 
-DT_INST_FOREACH(DW_DMAC_INIT)
+DT_INST_FOREACH_STATUS_OKAY(DW_DMAC_INIT)

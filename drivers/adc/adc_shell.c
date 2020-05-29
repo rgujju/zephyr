@@ -10,21 +10,21 @@
 #include <ctype.h>
 #include <sys/util.h>
 
-#if DT_HAS_COMPAT(atmel_sam_afec)
+#if DT_HAS_COMPAT_STATUS_OKAY(atmel_sam_afec)
 #define DT_DRV_COMPAT atmel_sam_afec
-#elif DT_HAS_COMPAT(atmel_sam0_adc)
+#elif DT_HAS_COMPAT_STATUS_OKAY(atmel_sam0_adc)
 #define DT_DRV_COMPAT atmel_sam0_adc
-#elif DT_HAS_COMPAT(microchip_xec_adc)
+#elif DT_HAS_COMPAT_STATUS_OKAY(microchip_xec_adc)
 #define DT_DRV_COMPAT microchip_xec_adc
-#elif DT_HAS_COMPAT(nordic_nrf_adc)
+#elif DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_adc)
 #define DT_DRV_COMPAT nordic_nrf_adc
-#elif DT_HAS_COMPAT(nordic_nrf_saadc)
+#elif DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_saadc)
 #define DT_DRV_COMPAT nordic_nrf_saadc
-#elif DT_HAS_COMPAT(nxp_kinetis_adc12)
+#elif DT_HAS_COMPAT_STATUS_OKAY(nxp_kinetis_adc12)
 #define DT_DRV_COMPAT nxp_kinetis_adc12
-#elif DT_HAS_COMPAT(nxp_kinetis_adc16)
+#elif DT_HAS_COMPAT_STATUS_OKAY(nxp_kinetis_adc16)
 #define DT_DRV_COMPAT nxp_kinetis_adc16
-#elif DT_HAS_COMPAT(st_stm32_adc)
+#elif DT_HAS_COMPAT_STATUS_OKAY(st_stm32_adc)
 #define DT_DRV_COMPAT st_stm32_adc
 #else
 #error No known devicetree compatible match for ADC shell
@@ -57,13 +57,13 @@ struct adc_hdl {
  * assume a semicolon separator.
  */
 struct adc_hdl adc_list[] = {
-#if DT_HAS_NODE_STATUS_OKAY(DT_DRV_INST(0))
+#if DT_NODE_HAS_STATUS(DT_DRV_INST(0), okay)
 	ADC_HDL_LIST_ENTRY(0),
 #endif
-#if DT_HAS_NODE_STATUS_OKAY(DT_DRV_INST(1))
+#if DT_NODE_HAS_STATUS(DT_DRV_INST(1), okay)
 	ADC_HDL_LIST_ENTRY(1),
 #endif
-#if DT_HAS_NODE_STATUS_OKAY(DT_DRV_INST(2))
+#if DT_NODE_HAS_STATUS(DT_DRV_INST(2), okay)
 	ADC_HDL_LIST_ENTRY(2),
 #endif
 };
@@ -465,7 +465,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_adc_cmds,
 );
 
 #define ADC_SHELL_COMMAND(inst) \
-	SHELL_CMD(ADC_##inst, &sub_adc_cmds, "ADC_" #inst, NULL),
+	SHELL_CMD(ADC_##inst, &sub_adc_cmds, "ADC_" #inst, NULL)
 
 /*
  * TODO generalize with a more flexible for-each macro that doesn't
@@ -473,13 +473,13 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_adc_cmds,
  */
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	sub_adc,
-#if DT_HAS_NODE_STATUS_OKAY(DT_DRV_INST(0))
+#if DT_NODE_HAS_STATUS(DT_DRV_INST(0), okay)
 	ADC_SHELL_COMMAND(0),
 #endif
-#if DT_HAS_NODE_STATUS_OKAY(DT_DRV_INST(1))
+#if DT_NODE_HAS_STATUS(DT_DRV_INST(1), okay)
 	ADC_SHELL_COMMAND(1),
 #endif
-#if DT_HAS_NODE_STATUS_OKAY(DT_DRV_INST(2))
+#if DT_NODE_HAS_STATUS(DT_DRV_INST(2), okay)
 	ADC_SHELL_COMMAND(2),
 #endif
 	SHELL_SUBCMD_SET_END /* Array terminated. */

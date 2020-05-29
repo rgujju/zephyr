@@ -204,6 +204,14 @@ typedef struct s_isrList {
 				   (flags_p)); \
 }
 
+/* Direct interrupts won't work as expected with KPTI turned on, because
+ * all non-user accessible pages in the page table are marked non-present.
+ * It's likely possible to add logic to ARCH_ISR_DIRECT_HEADER/FOOTER to do
+ * the necessary trampolining to switch page tables / stacks, but this
+ * probably loses all the latency benefits that direct interrupts provide
+ * and one might as well use a regular interrupt anyway.
+ */
+#ifndef CONFIG_X86_KPTI
 #define ARCH_IRQ_DIRECT_CONNECT(irq_p, priority_p, isr_p, flags_p) \
 { \
 	NANO_CPU_INT_REGISTER(isr_p, irq_p, priority_p, -1, 0); \
@@ -253,7 +261,7 @@ static inline void arch_isr_direct_header(void)
 	/* We're not going to unlock IRQs, but we still need to increment this
 	 * so that arch_is_in_isr() works
 	 */
-	++_kernel.nested;
+	++_kernel.cpus[0].nested;
 }
 
 /*
@@ -269,7 +277,7 @@ static inline void arch_isr_direct_footer(int swap)
 #if defined(CONFIG_TRACING)
 	sys_trace_isr_exit();
 #endif
-	--_kernel.nested;
+	--_kernel.cpus[0].nested;
 
 	/* Call swap if all the following is true:
 	 *
@@ -277,7 +285,7 @@ static inline void arch_isr_direct_footer(int swap)
 	 * 2) We are not in a nested interrupt
 	 * 3) Next thread to run in the ready queue is not this thread
 	 */
-	if (swap != 0 && _kernel.nested == 0 &&
+	if (swap != 0 && _kernel.cpus[0].nested == 0 &&
 	    _kernel.ready_q.cache != _current) {
 		unsigned int flags;
 
@@ -305,6 +313,7 @@ static inline void arch_isr_direct_footer(int swap)
 		ISR_DIRECT_FOOTER(check_reschedule); \
 	} \
 	static inline int name##_body(void)
+#endif /* !CONFIG_X86_KPTI */
 
 /**
  * @brief Exception Stack Frame

@@ -152,7 +152,7 @@ struct uart_xlnx_ps_dev_data_t {
 
 #define DEV_CFG(dev) \
 	((const struct uart_xlnx_ps_dev_config * const) \
-	 (dev)->config->config_info)
+	 (dev)->config_info)
 #define DEV_DATA(dev) \
 	((struct uart_xlnx_ps_dev_data_t *)(dev)->driver_data)
 
@@ -1217,6 +1217,6 @@ DEVICE_AND_API_INIT(uart_xlnx_ps_##port, DT_INST_LABEL(port), \
 	UART_XLNX_PS_IRQ_CONF_FUNC(inst);	\
 	UART_XLNX_PS_DEV_DATA(inst);		\
 	UART_XLNX_PS_DEV_CFG(inst);		\
-	UART_XLNX_PS_INIT(inst)
+	UART_XLNX_PS_INIT(inst);
 
-DT_INST_FOREACH(UART_XLNX_INSTANTIATE)
+DT_INST_FOREACH_STATUS_OKAY(UART_XLNX_INSTANTIATE)

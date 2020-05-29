@@ -360,7 +360,7 @@ static const struct gpio_driver_api api_table = {
 static int mcp23s17_init(struct device *dev)
 {
 	const struct mcp23s17_config *const config =
-		dev->config->config_info;
+		dev->config_info;
 	struct mcp23s17_drv_data *const drv_data =
 		(struct mcp23s17_drv_data *const)dev->driver_data;
 
@@ -438,6 +438,6 @@ static int mcp23s17_init(struct device *dev)
 			    &mcp23s17_##inst##_config,			\
 			    POST_KERNEL,				\
 			    CONFIG_GPIO_MCP23S17_INIT_PRIORITY,		\
-			    &api_table)
+			    &api_table);
 
-DT_INST_FOREACH(MCP23S17_INIT)
+DT_INST_FOREACH_STATUS_OKAY(MCP23S17_INIT)

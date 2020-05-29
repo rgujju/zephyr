@@ -18,7 +18,7 @@ struct rv32m1_pcc_config {
 	u32_t base_address;
 };
 
-#define DEV_CFG(dev)  ((struct rv32m1_pcc_config *)(dev->config->config_info))
+#define DEV_CFG(dev)  ((struct rv32m1_pcc_config *)(dev->config_info))
 #define DEV_BASE(dev) (DEV_CFG(dev)->base_address)
 
 static inline clock_ip_name_t clock_ip(struct device *dev,
@@ -70,6 +70,6 @@ static const struct clock_control_driver_api rv32m1_pcc_api = {
 			    NULL, &rv32m1_pcc##inst##_config,		\
 			    PRE_KERNEL_1,				\
 			    CONFIG_KERNEL_INIT_PRIORITY_OBJECTS,	\
-			    &rv32m1_pcc_api)
+			    &rv32m1_pcc_api);
 
-DT_INST_FOREACH(RV32M1_PCC_INIT)
+DT_INST_FOREACH_STATUS_OKAY(RV32M1_PCC_INIT)

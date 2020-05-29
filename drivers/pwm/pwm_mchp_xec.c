@@ -49,11 +49,11 @@ struct pwm_xec_config {
 #define PWM_XEC_REG_BASE(_dev)				\
 	((PWM_Type *)			\
 	 ((const struct pwm_xec_config * const)		\
-	  _dev->config->config_info)->base_address)
+	  _dev->config_info)->base_address)
 
 #define PWM_XEC_CONFIG(_dev)				\
 	(((const struct pwm_xec_config * const)		\
-	  _dev->config->config_info))
+	  _dev->config_info))
 
 struct xec_params {
 	u32_t on;
@@ -394,6 +394,6 @@ static struct pwm_driver_api pwm_xec_api = {
 			    &pwm_xec_dev_config_##inst,			\
 			    POST_KERNEL,				\
 			    CONFIG_KERNEL_INIT_PRIORITY_DEVICE,		\
-			    &pwm_xec_api)
+			    &pwm_xec_api);
 
-DT_INST_FOREACH(XEC_INST_INIT)
+DT_INST_FOREACH_STATUS_OKAY(XEC_INST_INIT)

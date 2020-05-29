@@ -48,11 +48,11 @@ struct counter_xec_data {
 #define COUNTER_XEC_REG_BASE(_dev)			\
 	((BTMR_Type *)					\
 	 ((const struct counter_xec_config * const)	\
-	  _dev->config->config_info)->base_address)
+	  _dev->config_info)->base_address)
 
 #define COUNTER_XEC_CONFIG(_dev)			\
 	(((const struct counter_xec_config * const)	\
-	  _dev->config->config_info))
+	  _dev->config_info))
 
 #define COUNTER_XEC_DATA(_dev)				\
 	((struct counter_xec_data *)dev->driver_data)
@@ -347,4 +347,4 @@ static int counter_xec_init(struct device *dev)
 		irq_enable(DT_INST_IRQN(inst));				\
 	}
 
-DT_INST_FOREACH(COUNTER_XEC_INIT)
+DT_INST_FOREACH_STATUS_OKAY(COUNTER_XEC_INIT)
