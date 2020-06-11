@@ -145,7 +145,7 @@ SECTION_FUNC(TEXT,z_arm_userspace_enter)
 #else
     eors.n r1, r1
 #endif
-    bl memset
+    #bl memset
 
 #if defined(CONFIG_ARMV6_M_ARMV8_M_BASELINE)
     pop {r0, r1}
