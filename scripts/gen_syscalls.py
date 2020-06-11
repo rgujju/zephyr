@@ -171,7 +171,7 @@ def wrapper_defs(func_name, func_type, args):
     decl_arglist = ", ".join([" ".join(argrec) for argrec in args])
 
     wrap = "extern %s z_impl_%s(%s);\n" % (func_type, func_name, decl_arglist)
-    wrap += "static inline %s %s(%s)\n" % (func_type, func_name, decl_arglist)
+    wrap += "#ifndef CONFIG_USERLIB\nstatic inline\n#endif\n%s %s(%s)\n" % (func_type, func_name, decl_arglist)
     wrap += "{\n"
     wrap += "#ifdef CONFIG_USERSPACE\n"
     wrap += ("\t" + "u64_t ret64;\n") if ret64 else ""
