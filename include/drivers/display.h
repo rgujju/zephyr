@@ -42,6 +42,7 @@ enum display_pixel_format {
 	PIXEL_FORMAT_ARGB_8888		= BIT(3),
 	PIXEL_FORMAT_RGB_565		= BIT(4),
 	PIXEL_FORMAT_BGR_565		= BIT(5),
+	PIXEL_FORMAT_RGB_111		= BIT(6),
 };
 
 enum display_screen_info {
@@ -67,6 +68,11 @@ enum display_screen_info {
 	 * Screen has minimum x or y pixel alignment contraint.
 	 */
 	SCREEN_INFO_ALIGNMENT_RESTRICTED	= BIT(4),
+	/**
+	 * Initialize externally supplied buffer
+	 */
+	SCREEN_INFO_EXTERNAL_BUFFER		= BIT(5),
+
 };
 
 /**
@@ -233,6 +239,16 @@ typedef int (*display_set_orientation_api)(const struct device *dev,
 					   orientation);
 
 /**
+ * @typedef display_init_buffer_api
+ * @brief Callback API to initialize externally supplied buffer.
+ *        Called only once.
+ * See display_init_buffer() for argument description
+ */
+typedef int (*display_init_buffer_api)(const struct device *dev,
+					   void *buf);
+
+
+/**
  * @brief Display driver API
  * API which a display driver should expose
  */
@@ -247,6 +263,7 @@ struct display_driver_api {
 	display_get_capabilities_api get_capabilities;
 	display_set_pixel_format_api set_pixel_format;
 	display_set_orientation_api set_orientation;
+	display_init_buffer_api init_buffer;
 };
 
 /**
@@ -445,6 +462,24 @@ static inline int display_set_orientation(const struct device *dev,
 
 	return api->set_orientation(dev, orientation);
 }
+
+/**
+ * @brief Initialize externally supplied buffer
+ *
+ * @param dev Pointer to device structure
+ * @param buf Pointer to buffer
+ *
+ * @retval 0 on success else negative errno code.
+ */
+static inline int display_init_buffer(const struct device *dev,
+					  void *buf)
+{
+	struct display_driver_api *api =
+		(struct display_driver_api *)dev->api;
+
+	return api->init_buffer(dev, buf);
+}
+
 
 #ifdef __cplusplus
 }

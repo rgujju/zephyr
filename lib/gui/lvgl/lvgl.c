@@ -33,9 +33,9 @@ static lv_disp_buf_t disp_buf;
  * uint16_t * or uint32_t *, therefore buffer needs to be aligned accordingly to
  * prevent unaligned memory accesses.
  */
-static uint8_t buf0[BUFFER_SIZE] __aligned(4);
+static uint8_t buf0[BUFFER_SIZE + CONFIG_LVGL_EXTRA_BYTES] __aligned(4);
 #ifdef CONFIG_LVGL_DOUBLE_VDB
-static uint8_t buf1[BUFFER_SIZE] __aligned(4);
+static uint8_t buf1[BUFFER_SIZE + CONFIG_LVGL_EXTRA_BYTES] __aligned(4);
 #endif
 
 #endif /* CONFIG_LVGL_BUFFER_ALLOC_STATIC */
@@ -146,14 +146,14 @@ static int lvgl_allocate_rendering_buffers(lv_disp_drv_t *disp_drv)
 		return -ENOTSUP;
 	}
 
-	buf0 = LV_MEM_CUSTOM_ALLOC(buf_size);
+	buf0 = LV_MEM_CUSTOM_ALLOC(buf_size + CONFIG_LVGL_EXTRA_BYTES);
 	if (buf0 == NULL) {
 		LOG_ERR("Failed to allocate memory for rendering buffer");
 		return -ENOMEM;
 	}
 
 #ifdef CONFIG_LVGL_DOUBLE_VDB
-	buf1 = LV_MEM_CUSTOM_ALLOC(buf_size);
+	buf1 = LV_MEM_CUSTOM_ALLOC(buf_size + CONFIG_LVGL_EXTRA_BYTES);
 	if (buf1 == NULL) {
 		LV_MEM_CUSTOM_FREE(buf0);
 		LOG_ERR("Failed to allocate memory for rendering buffer");
@@ -319,7 +319,7 @@ static int lvgl_init(const struct device *dev)
 		return err;
 	}
 
-	if (set_lvgl_rendering_cb(&disp_drv) != 0) {
+	if (set_lvgl_rendering_cb(&disp_drv, &buf0) != 0) {
 		LOG_ERR("Display not supported.");
 		return -ENOTSUP;
 	}

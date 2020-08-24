@@ -6,7 +6,7 @@
 
 #include "lvgl_display.h"
 
-int set_lvgl_rendering_cb(lv_disp_drv_t *disp_drv)
+int set_lvgl_rendering_cb(lv_disp_drv_t *disp_drv, void *buf)
 {
 	int err = 0;
 	const struct device *display_dev = (const struct device *)disp_drv->user_data;
@@ -39,6 +39,11 @@ int set_lvgl_rendering_cb(lv_disp_drv_t *disp_drv)
 		disp_drv->set_px_cb = lvgl_set_px_cb_16bit;
 #endif
 		break;
+	case PIXEL_FORMAT_RGB_111:
+		disp_drv->flush_cb = lvgl_flush_cb_3bit;
+		disp_drv->rounder_cb = lvgl_rounder_cb_3bit;
+		disp_drv->set_px_cb = lvgl_set_px_cb_3bit;
+		break;
 	case PIXEL_FORMAT_MONO01:
 	case PIXEL_FORMAT_MONO10:
 		disp_drv->flush_cb = lvgl_flush_cb_mono;
@@ -52,6 +57,12 @@ int set_lvgl_rendering_cb(lv_disp_drv_t *disp_drv)
 		err = -ENOTSUP;
 		break;
 
+	}
+
+	if (cap.screen_info & SCREEN_INFO_EXTERNAL_BUFFER) {
+		if (display_init_buffer(display_dev, buf) != 0) {
+			err = -EIO;
+		}
 	}
 
 	return err;
