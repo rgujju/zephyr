@@ -1,7 +1,7 @@
 .. _ls0xx_generic_shield:
 
 Sharp memory display generic shield
-#########################################
+###################################
 
 Overview
 ********
@@ -9,37 +9,29 @@ Overview
 This is a generic shield for Sharp memory pixel LCD. It supports
 displays of LS0XX type. These displays have an SPI interface and
 few other pins. Note that the SCS is active high for this display.
+
 The DISP pin controls whether to display memory
 contents or show all white pixels, this can be connected
-directly to VDD, to always display memory contents. There is
-an EXTCOMIN pin which can be configured to control the VCOM.
+directly to VDD, to always display memory contents or connected
+to a gpio. If devicetree contains ``disp-en-gpios`` then it will be set to
+high during driver initialization. Display blanking apis can be used
+to control it.
 
 Sharp memory displays require toggling the VCOM signal periodically
-to prevent a DC bias ocurring in the panel. The DC bias can damage
-the LCD and reduce the life. This signal must be supplied
-from either serial input (sw) or an external signal on the
-EXTCOMIN pin. The driver can do this internally
-`CONFIG_LS0XX_VCOM_DRIVER` =y (default) else user can handle it in
-application code `CONFIG_LS0XX_VCOM_DRIVER` =n.
+to prevent a DC bias ocurring in the panel as mentioned in the `appnote`_
+and `datasheet`_. The DC bias can damage the LCD and reduce the life.
+This signal must be supplied from either serial input (sw) or an external
+signal on the EXTCOMIN pin.
 
-CONFIG_LS0XX_VCOM_DRIVER=y
-  Driver will handle VCOM toggling. User can control method of toggling
-  using `CONFIG_LS0XX_VCOM_EXTERNAL`.
+Currently the driver only supports VCOM toggling using the EXTCOMIN pin
+(EXTMODE pin is connected to VDD).
+When ``extcomin-gpios`` is defined, driver starts a thread which will
+toggle EXTCOMIN at ``extcomin-frequency`` frequency. Higher frequency
+gives better contrast while lower frequency saves power.
 
-CONFIG_LS0XX_VCOM_EXTERNAL=n
-  This is the default option.
-  VCOM is toggled through serial input by software.
-  EXTMODE pin is connected to VSS
-  Important: User has to make sure `display_write` is called periodically
-  for toggling VCOM. If there is no data to update then buf can
-  be set to NULL then only VCOM will be toggled.
-
-CONFIG_LS0XX_VCOM_EXTERNAL=y
-  VCOM is toggled using external signal EXTCOMIN.
-  EXTMODE pin is connected to VDD
-  Important: Driver will start a thread which will
-  toggle the EXTCOMIN pin every 500ms. There is no
-  dependency on user.
+To use a different method of toggling for example pwm, user may not
+define ``extcomin-gpios`` and implement their preferred method in
+application code.
 
 Pins Assignment of the Generic Sharp memory Display Shield
 ==========================================================
@@ -109,8 +101,8 @@ References
 
 .. target-notes::
 
-.. _LS013B7DH03 Datasheet:
-   https://www.mouser.com/datasheet/2/365/LS013B7DH03%20SPEC_SMA-224806.pdf
+.. _appnote:
+   https://www.sharpsma.com/documents/1468207/1485747/Memory+LCD+Theory%2C+Programming%2C+and+Interfaces
 
-.. _Sharp memory display app note:
-   https://www.sharpsde.com/fileadmin/products/Displays/2016_SDE_App_Note_for_Memory_LCD_programming_V1.3.pdf
+.. _datasheet:
+   https://www.mouser.com/datasheet/2/365/LS013B7DH03%20SPEC_SMA-224806.pdf
