@@ -13,6 +13,12 @@ zephyr_sources_ifdef(CONFIG_GD7965		gd7965.c)
 zephyr_sources_ifdef(CONFIG_LS0XX		ls0xx.c)
 zephyr_sources_ifdef(CONFIG_LPM0XX		lpm0xx.c)
 
+if (CONFIG_ILI9XXX)
+  zephyr_sources(display_ili9xxx.c)
+endif()
+zephyr_sources_ifdef(CONFIG_ILI9340 display_ili9340.c)
+zephyr_sources_ifdef(CONFIG_ILI9488 display_ili9488.c)
+
 zephyr_sources_ifdef(CONFIG_MICROBIT_DISPLAY
 	mb_display.c
 	mb_font.c

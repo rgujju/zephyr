@@ -18,25 +18,28 @@ properties:
       required: true
       description: Width in pixel of the panel driven by the controller
 
-    scs-gpios:
-      type: phandle-array
-      required: true
-      description: SCS pin
-
-        The SCS pin is the SPI chip select pin of sharp memory display.
-        It is active high.
-
     extcomin-gpios:
       type: phandle-array
       required: false
       description: EXTCOMIN pin
 
-        The EXTCOMIN pin is where a square pulse should be given
+        The EXTCOMIN pin is where a square pulse for toggling VCOM will
+        be given
 
-    disp-gpios:
+    extcomin-frequency:
+      type: int
+      required: false
+      description: EXTCOMIN pin toggle frequency
+
+        The frequency with which the EXTCOMIN pin should be toggled. See
+        datasheet of particular display. Higher frequency gives better
+        contrast while low frequency saves power.
+
+    disp-en-gpios:
       type: phandle-array
       required: false
       description: DISPLAY pin
 
         The DISPLAY pin controls if the LCD displays memory contents or
-        white screen
+        white screen. If defined, the pin will be set high during driver
+        initialization. display blanking apis can be used to control it.
