@@ -1,0 +1,271 @@
+/*
+ * Copyright (c) 2020 Rohit Gujarathi <gujju.rohit@gmail.com>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <device.h>
+#include <drivers/gpio.h>
+#include <drivers/display.h>
+#include <lvgl.h>
+#include <stdio.h>
+#include <string.h>
+#include <zephyr.h>
+
+LV_FONT_DECLARE(roboto_condensed_regular_18)
+LV_FONT_DECLARE(roboto_condensed_bold_18)
+
+#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+#include <logging/log.h>
+LOG_MODULE_REGISTER(app);
+
+
+extern lv_group_t *lvgl_kb_group;
+lv_obj_t *menu_base_obj;
+
+#define KEY_DOWN_NODE		DT_ALIAS(sw0)
+#define KEY_UP_NODE			DT_ALIAS(sw1)
+
+#if DT_NODE_HAS_STATUS(KEY_UP_NODE, okay)
+	#define KEY_UP_GPIO_LABEL		DT_GPIO_LABEL(KEY_UP_NODE, gpios)
+	#define KEY_UP_GPIO_PIN			DT_GPIO_PIN(KEY_UP_NODE, gpios)
+	#define KEY_UP_GPIO_FLAGS		(GPIO_INPUT | DT_GPIO_FLAGS(KEY_UP_NODE, gpios))
+#else
+	//#error "Unsupported board: sw1 devicetree alias is not defined"
+	#define KEY_UP_GPIO_LABEL		"GPIO_0"
+	#define KEY_UP_GPIO_PIN			11
+	#define KEY_UP_GPIO_FLAGS		(GPIO_INPUT)
+#endif
+
+#if DT_NODE_HAS_STATUS(KEY_DOWN_NODE, okay)
+	#define KEY_DOWN_GPIO_LABEL		DT_GPIO_LABEL(KEY_DOWN_NODE, gpios)
+	#define KEY_DOWN_GPIO_PIN		DT_GPIO_PIN(KEY_DOWN_NODE, gpios)
+	#define KEY_DOWN_GPIO_FLAGS		(GPIO_INPUT | DT_GPIO_FLAGS(KEY_DOWN_NODE, gpios))
+#else
+	//#error "Unsupported board: sw0 devicetree alias is not defined"
+	#define KEY_DOWN_GPIO_LABEL		"GPIO_0"
+	#define KEY_DOWN_GPIO_PIN		12
+	#define KEY_DOWN_GPIO_FLAGS		(GPIO_INPUT)
+#endif
+
+struct device *button[2]; /* TODO: 2 variables shoudnt be requried if debouncing and interrupt works correctly */
+static struct gpio_callback button_cb_data[2];
+
+void button_pressed(struct device *dev, struct gpio_callback *cb,
+					uint32_t pins)
+{
+	static uint32_t key;
+	/* TODO: Do proper GPIO debouncing */
+	for(uint32_t i = 0; i<0x00FFFF; i++){
+		gpio_pin_get(button[0], KEY_UP_GPIO_PIN);
+	}
+	if (pins & BIT(KEY_UP_GPIO_PIN)){
+		/* TODO: Remove gpio_pin_get once debouncing works */
+		if (gpio_pin_get(button[0], KEY_UP_GPIO_PIN)) {
+			key = LV_KEY_UP;
+			lv_event_send(menu_base_obj, LV_EVENT_KEY, &key);
+		}
+	} else if (pins & BIT(KEY_DOWN_GPIO_PIN)) {
+		if (gpio_pin_get(button[1], KEY_DOWN_GPIO_PIN)) {
+			key = LV_KEY_DOWN;
+			lv_event_send(menu_base_obj, LV_EVENT_KEY, &key);
+		}
+	}
+}
+
+int config_btns()
+{
+	int ret;
+
+	button[0] = device_get_binding(KEY_UP_GPIO_LABEL);
+	if (button[0] == NULL) {
+		printk("Error: didn't find %s device\n", KEY_UP_GPIO_LABEL);
+		return -EIO;
+	}
+
+	ret = gpio_pin_configure(button[0], KEY_UP_GPIO_PIN, KEY_UP_GPIO_FLAGS | GPIO_INT_DEBOUNCE);
+	if (ret != 0) {
+		printk("Error %d: failed to configure %s pin %d\n",
+			   ret, KEY_UP_GPIO_LABEL, KEY_UP_GPIO_PIN);
+		return ret;
+	}
+
+	ret = gpio_pin_interrupt_configure(button[0],
+									   KEY_UP_GPIO_PIN,
+									   GPIO_INT_EDGE_TO_ACTIVE);
+	if (ret != 0) {
+		printk("Error %d: failed to configure interrupt on %s pin %d\n",
+			   ret, KEY_UP_GPIO_LABEL, KEY_UP_GPIO_PIN);
+		return ret;
+	}
+
+	gpio_init_callback(&button_cb_data[0], button_pressed, BIT(KEY_UP_GPIO_PIN));
+	gpio_add_callback(button[0], &button_cb_data[0]);
+	printk("Set up button at %s pin %d\n", KEY_UP_GPIO_LABEL, KEY_UP_GPIO_PIN);
+
+	button[1] = device_get_binding(KEY_DOWN_GPIO_LABEL);
+	if (button[1] == NULL) {
+		printk("Error: didn't find %s device\n", KEY_DOWN_GPIO_LABEL);
+		return -EIO;
+	}
+
+	ret = gpio_pin_configure(button[1], KEY_DOWN_GPIO_PIN, KEY_DOWN_GPIO_FLAGS | GPIO_INT_DEBOUNCE);
+	if (ret != 0) {
+		printk("Error %d: failed to configure %s pin %d\n",
+			   ret, KEY_DOWN_GPIO_LABEL, KEY_DOWN_GPIO_PIN);
+		return ret;
+	}
+
+	ret = gpio_pin_interrupt_configure(button[1],
+									   KEY_DOWN_GPIO_PIN,
+									   GPIO_INT_EDGE_TO_ACTIVE);
+	if (ret != 0) {
+		printk("Error %d: failed to configure interrupt on %s pin %d\n",
+			   ret, KEY_DOWN_GPIO_LABEL, KEY_DOWN_GPIO_PIN);
+		return ret;
+	}
+
+	gpio_init_callback(&button_cb_data[1], button_pressed, BIT(KEY_DOWN_GPIO_PIN));
+	gpio_add_callback(button[1], &button_cb_data[1]);
+	printk("Set up button at %s pin %d\n", KEY_DOWN_GPIO_LABEL, KEY_DOWN_GPIO_PIN);
+
+
+	return 0;
+}
+
+static void menu_btn_handler(lv_obj_t *obj, lv_event_t event)
+{
+	const uint32_t *key = lv_event_get_data();
+
+	if(event == LV_EVENT_KEY){
+		lv_obj_t *menu_list_obj = lv_obj_get_child(obj, NULL);
+		lv_obj_t *menu_list_btn = lv_list_get_btn_selected(menu_list_obj);
+		lv_obj_t *menu_list_new_btn = menu_list_btn;
+
+		switch (*key) {
+			case LV_KEY_UP:
+				menu_list_new_btn = lv_list_get_prev_btn(menu_list_obj, menu_list_btn);
+				break;
+			case LV_KEY_DOWN:
+				menu_list_new_btn = lv_list_get_next_btn(menu_list_obj, menu_list_btn);
+				break;
+			case LV_KEY_LEFT:
+				printk("Left\n");
+				break;
+			case LV_KEY_RIGHT:
+				printk("sel: %s\n", lv_list_get_btn_text(menu_list_btn));
+				printk("Right\n");
+				return;
+		}
+
+		if(menu_list_new_btn != NULL){
+			lv_list_focus_btn(menu_list_obj, menu_list_new_btn);
+/*
+			lv_obj_t *menu_page_focus_btn = lv_list_get_next_btn(menu_list_obj, menu_list_new_btn);
+			if(menu_page_focus_btn != NULL){
+				menu_page_focus_btn = lv_list_get_next_btn(menu_list_obj, menu_page_focus_btn);
+			}
+			if(menu_page_focus_btn != NULL){
+				lv_page_focus(menu_list_obj, menu_page_focus_btn, LV_ANIM_ON); 
+			}
+*/
+		}
+	} else {
+		printk("Something happend %d\n", event);
+	}
+}
+
+void show_menu(void)
+{
+	static lv_style_t menu_base_style;
+
+	lv_style_init(&menu_base_style);
+	lv_style_set_transform_width(&menu_base_style, LV_STATE_DEFAULT, 176);
+	lv_style_set_transform_height(&menu_base_style, LV_STATE_DEFAULT, 176);
+	lv_style_set_bg_opa(&menu_base_style, LV_STATE_DEFAULT, LV_OPA_COVER);
+	lv_style_set_bg_color(&menu_base_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+
+	menu_base_obj = lv_obj_create(lv_scr_act(), NULL);
+	lv_group_add_obj(lvgl_kb_group, menu_base_obj);
+	lv_obj_set_event_cb(menu_base_obj, menu_btn_handler);
+	lv_obj_set_size(menu_base_obj, 176, 176);
+	lv_obj_add_style(menu_base_obj, LV_OBJ_PART_MAIN, &menu_base_style);
+	lv_obj_align(menu_base_obj, NULL, LV_ALIGN_CENTER, 0, 0);
+
+	/* Menu button style */
+	static lv_style_t menu_btn_style;
+	lv_style_init(&menu_btn_style);
+	lv_style_set_margin_bottom(&menu_btn_style, LV_STATE_DEFAULT, 5);
+	lv_style_set_pad_bottom(&menu_btn_style, LV_STATE_DEFAULT, 8);
+	lv_style_set_pad_left(&menu_btn_style, LV_STATE_DEFAULT, 0);
+	lv_style_set_pad_top(&menu_btn_style, LV_STATE_DEFAULT, 6);
+	lv_style_set_pad_right(&menu_btn_style, LV_STATE_DEFAULT, 0);
+	lv_style_set_bg_opa(&menu_btn_style, LV_STATE_DEFAULT, LV_OPA_COVER);
+	lv_style_set_bg_color(&menu_btn_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+	lv_style_set_text_color(&menu_btn_style, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+	lv_style_set_text_font(&menu_btn_style, LV_STATE_DEFAULT, &roboto_condensed_bold_18);
+
+	lv_style_set_bg_color(&menu_btn_style, LV_STATE_FOCUSED, LV_COLOR_BLACK);
+	lv_style_set_text_color(&menu_btn_style, LV_STATE_FOCUSED, LV_COLOR_WHITE);
+
+	/*Create a list*/
+	lv_obj_t *menu_list_obj = lv_list_create(menu_base_obj, NULL);
+	lv_obj_set_size(menu_list_obj, 176, 176);
+	lv_obj_align(menu_list_obj, NULL, LV_ALIGN_CENTER, 0, 0);
+	lv_list_set_anim_time(menu_list_obj, 5);
+	printk("Anim time: %d\n",lv_list_get_anim_time(menu_list_obj));
+
+	/*Add buttons to the list*/
+	lv_obj_t *menu_list_btn;
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_FILE, "Settings");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+	lv_list_focus_btn(menu_list_obj, menu_list_btn);
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_DIRECTORY, " Music");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_CLOSE, " Notifications");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_EDIT, " Blinky");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_SAVE, " Weather");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_BELL, " Send Text");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_BATTERY_FULL, " Battery");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_BATTERY_FULL, " About");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+
+	menu_list_btn = lv_list_add_btn(menu_list_obj, LV_SYMBOL_BATTERY_FULL, " Reminders");
+	lv_obj_add_style(menu_list_btn, LV_OBJ_PART_MAIN, &menu_btn_style);
+}
+
+
+void main(void)
+{
+	struct device *display_dev;
+	display_dev = device_get_binding(CONFIG_LVGL_DISPLAY_DEV_NAME);
+
+	if (display_dev == NULL) {
+		LOG_ERR("device not found.  Aborting test.");
+		return;
+	}
+
+	config_btns();
+	show_menu();
+
+	lv_task_handler();
+	display_blanking_off(display_dev);
+
+	while (1) {
+		lv_task_handler();
+		k_sleep(K_MSEC(1));
+	}
+}
