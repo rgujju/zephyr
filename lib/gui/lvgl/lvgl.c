@@ -13,6 +13,7 @@
 #endif
 #ifdef CONFIG_LVGL_POINTER_KSCAN
 #include <drivers/kscan.h>
+#include <SDL.h>
 #endif
 #include LV_MEM_CUSTOM_INCLUDE
 
@@ -20,12 +21,13 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(lvgl);
 
+lv_group_t *lvgl_kb_group;
 #ifdef CONFIG_LVGL_BUFFER_ALLOC_STATIC
 
 static lv_disp_buf_t disp_buf;
 
 #define BUFFER_SIZE (CONFIG_LVGL_BITS_PER_PIXEL * ((CONFIG_LVGL_VDB_SIZE * \
-			CONFIG_LVGL_HOR_RES_MAX * CONFIG_LVGL_VER_RES_MAX) / 100) / 8)
+						    CONFIG_LVGL_HOR_RES_MAX * CONFIG_LVGL_VER_RES_MAX) / 100) / 8)
 
 #define NBR_PIXELS_IN_BUFFER (BUFFER_SIZE * 8 / CONFIG_LVGL_BITS_PER_PIXEL)
 
@@ -42,7 +44,7 @@ static uint8_t buf1[BUFFER_SIZE + CONFIG_LVGL_EXTRA_BYTES] __aligned(4);
 
 #if CONFIG_LVGL_LOG_LEVEL != 0
 static void lvgl_log(lv_log_level_t level, const char *file, uint32_t line,
-		const char *func, const char *dsc)
+		     const char *func, const char *dsc)
 {
 	/* Convert LVGL log level to Zephyr log level
 	 *
@@ -99,7 +101,7 @@ static int lvgl_allocate_rendering_buffers(lv_disp_drv_t *disp_drv)
 	lv_disp_buf_init(disp_drv->buffer, &buf0, &buf1, NBR_PIXELS_IN_BUFFER);
 #else
 	lv_disp_buf_init(disp_drv->buffer, &buf0, NULL, NBR_PIXELS_IN_BUFFER);
-#endif /* CONFIG_LVGL_DOUBLE_VDB  */
+#endif  /* CONFIG_LVGL_DOUBLE_VDB  */
 
 	return err;
 }
@@ -121,7 +123,7 @@ static int lvgl_allocate_rendering_buffers(lv_disp_drv_t *disp_drv)
 	disp_drv->ver_res = cap.y_resolution;
 
 	buf_nbr_pixels = (CONFIG_LVGL_VDB_SIZE * disp_drv->hor_res *
-			disp_drv->ver_res) / 100;
+			  disp_drv->ver_res) / 100;
 	/* one horizontal line is the minimum buffer requirement for lvgl */
 	if (buf_nbr_pixels < disp_drv->hor_res) {
 		buf_nbr_pixels = disp_drv->hor_res;
@@ -185,8 +187,27 @@ static void lvgl_pointer_kscan_callback(const struct device *dev,
 	lv_indev_data_t data = {
 		.point.x = col,
 		.point.y = row,
+		.key = row,
 		.state = pressed ? LV_INDEV_STATE_PR : LV_INDEV_STATE_REL,
 	};
+
+	// This should be moved to the keyboard API
+	switch (data.key) {
+	case SDLK_UP:         /* Up arrow key */
+		data.key = LV_KEY_UP;
+		break;
+	case SDLK_DOWN:         /* Down arrow key */
+		data.key = LV_KEY_DOWN;
+		break;
+	case SDLK_LEFT:         /* Left arrow key */
+		data.key = LV_KEY_LEFT;
+		break;
+	case SDLK_RIGHT:         /* Right arrow key */
+		data.key = LV_KEY_RIGHT;
+		break;
+	default:
+		printk("Unknown key: %d\n", data.key);
+	}
 
 	if (k_msgq_put(&kscan_msgq, &data, K_NO_WAIT) != 0) {
 		LOG_ERR("Could put input data into queue");
@@ -203,6 +224,7 @@ static bool lvgl_pointer_kscan_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 	static lv_indev_data_t prev = {
 		.point.x = 0,
 		.point.y = 0,
+		.key = 0,
 		.state = LV_INDEV_STATE_REL,
 	};
 
@@ -273,15 +295,23 @@ static int lvgl_pointer_kscan_init(void)
 	}
 
 	lv_indev_drv_init(&indev_drv);
-	indev_drv.type = LV_INDEV_TYPE_POINTER;
+	indev_drv.type = LV_INDEV_TYPE_KEYPAD;
 	indev_drv.read_cb = lvgl_pointer_kscan_read;
 
-	if (lv_indev_drv_register(&indev_drv) == NULL) {
+	lv_indev_t *kb_indev = lv_indev_drv_register(&indev_drv);
+	if (kb_indev == NULL) {
 		LOG_ERR("Failed to register input device.");
 		return -EPERM;
 	}
 
 	kscan_enable_callback(kscan_dev);
+
+	/* Keypad/keyboard input device requires a group
+	 * in lvgl. The objects need to be added to this
+	 * group to receive keypad/keyboard events.
+	 */
+	lvgl_kb_group = lv_group_create();
+	lv_indev_set_group(kb_indev, lvgl_kb_group);
 
 	return 0;
 }
@@ -331,7 +361,7 @@ static int lvgl_init(const struct device *dev)
 
 #ifdef CONFIG_LVGL_POINTER_KSCAN
 	lvgl_pointer_kscan_init();
-#endif /* CONFIG_LVGL_POINTER_KSCAN */
+#endif  /* CONFIG_LVGL_POINTER_KSCAN */
 
 	return 0;
 }

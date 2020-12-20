@@ -36,16 +36,30 @@ static int sdl_filter(void *arg, SDL_Event *event)
 		row = event->button.y;
 	} break;
 	case SDL_MOUSEMOTION: {
-		if (!event->motion.state)
+		if (!event->motion.state) {
 			break;
+		}
 		pressed = 1;
 		column = event->button.x;
 		row = event->button.y;
 	} break;
+	case SDL_KEYUP: {
+		pressed = 0;
+		/* row is reused for sending the key */
+		row = event->key.keysym.sym;
+		/* Column is just some dummy value */
+		column = 10;
+	} break;
+	case SDL_KEYDOWN: {
+		pressed = 1;
+		/* row is reused for sending the key */
+		row = event->key.keysym.sym;
+		/* Column is just some dummy value */
+		column = 10;
+	} break;
 	default:
 		return 1;
 	}
-
 	if (data->enabled && data->callback) {
 		data->callback(data->dev, row, column, pressed);
 	}
