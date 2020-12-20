@@ -51,6 +51,12 @@ config LVGL_EXTRA_BYTES
 	help
 	  Allocate extra bytes in the buffer if required.
 
+config RATCH_LVGL_DRAW_RELATIVE
+	bool "Draw relative to disp_area"
+	default y
+	help
+	  Draw to disp_buf will be relative to disp_area
+
 config LVGL_COLOR_16_SWAP
 	bool "RGB565 byte swap"
 	depends on LVGL_COLOR_DEPTH_16
