@@ -81,22 +81,22 @@ int pagestack_init()
 
 	lv_style_init(&page_base_style);
 	// TODO: change 176 to reflect actual display
-	lv_style_set_transform_width(&page_base_style, LV_STATE_DEFAULT, 176);
-	lv_style_set_transform_height(&page_base_style, LV_STATE_DEFAULT, 176);
+	lv_style_set_transform_width(&page_base_style, LV_STATE_DEFAULT, CONFIG_LVGL_HOR_RES_MAX);
+	lv_style_set_transform_height(&page_base_style, LV_STATE_DEFAULT, CONFIG_LVGL_VER_RES_MAX);
 	lv_style_set_bg_opa(&page_base_style, LV_STATE_DEFAULT, LV_OPA_COVER);
 	lv_style_set_bg_color(&page_base_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
 
 	page_base_obj = lv_obj_create(lv_scr_act(), NULL);
 	lv_group_add_obj(lvgl_kb_group, page_base_obj);
 	lv_obj_set_event_cb(page_base_obj, page_ev_handler);
-	lv_obj_set_size(page_base_obj, 176, 176);
+	lv_obj_set_size(page_base_obj, CONFIG_LVGL_HOR_RES_MAX, CONFIG_LVGL_VER_RES_MAX);
 	lv_obj_add_style(page_base_obj, LV_OBJ_PART_MAIN, &page_base_style);
 	lv_obj_align(page_base_obj, NULL, LV_ALIGN_CENTER, 0, 0);
 
 	/* Create an app_base_obj so that app cannot
 	 * interact directly with the page_base_obj */
 	app_base_obj = lv_obj_create(page_base_obj, NULL);
-	lv_obj_set_size(app_base_obj, 176, 176);
+	lv_obj_set_size(app_base_obj, CONFIG_LVGL_HOR_RES_MAX, CONFIG_LVGL_VER_RES_MAX);
 	lv_obj_add_style(app_base_obj, LV_OBJ_PART_MAIN, &page_base_style);
 	lv_obj_align(app_base_obj, NULL, LV_ALIGN_CENTER, 0, 0);
 

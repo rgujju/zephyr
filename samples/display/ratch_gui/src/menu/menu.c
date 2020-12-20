@@ -34,7 +34,7 @@ void menu_btn_handler(lv_obj_t *app_obj, lv_event_t event)
 				break;
 			case LV_KEY_RIGHT:
 				printk("sel: %s uid: %d\n", lv_list_get_btn_text(menu_list_btn), *((uint8_t *)lv_obj_get_user_data(menu_list_btn)));
-				//LV_OBJ_ANIM(obj, x, linear, -176, 30);
+				//LV_OBJ_ANIM(obj, x, linear, -CONFIG_LVGL_HOR_RES_MAX, 30);
 				return;
 		}
 
@@ -83,7 +83,7 @@ static void display_menu(void)
 	menu_base_obj = pagestack_get_base_obj();
 	lv_obj_t *menu_list_obj = lv_list_create(menu_base_obj, NULL);
 	lv_obj_set_event_cb(menu_base_obj, menu_btn_handler);
-	lv_obj_set_size(menu_list_obj, 176, 176);
+	lv_obj_set_size(menu_list_obj, CONFIG_LVGL_HOR_RES_MAX, CONFIG_LVGL_VER_RES_MAX);
 	lv_obj_align(menu_list_obj, NULL, LV_ALIGN_CENTER, 0, 0);
 	lv_list_set_anim_time(menu_list_obj, 300);
 
