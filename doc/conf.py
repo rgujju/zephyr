@@ -52,7 +52,8 @@ extensions = [
     'zephyr.html_redirects',
     'only.eager_only',
     'zephyr.link-roles',
-    'sphinx_tabs.tabs'
+    'sphinx_tabs.tabs',
+    'sphinxcontrib.plantuml'
 ]
 
 # Only use SVG converter when it is really needed, e.g. LaTeX.
@@ -282,6 +283,7 @@ html_search_scorer = 'scorer.js'
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'zephyrdoc'
 
+plantuml = 'java -jar '+ZEPHYR_BASE+'/scripts/plantuml.jar'
 
 # Custom added feature to allow redirecting old URLs (caused by
 # reorganizing doc directories)
