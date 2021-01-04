@@ -129,7 +129,7 @@
  * disallow us to test system calls in POSIX unit testing (currently
  * not used).
  */
-#if !defined(ZTEST_UNITTEST) && !defined(CONFIG_USERLIB)
+#if !defined(ZTEST_UNITTEST) && !defined(CONFIG_RATCH_SDK)
 #define __syscall static inline
 #else
 #define __syscall
